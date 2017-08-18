@@ -1,0 +1,36 @@
+* Download Stanford CoreNLP to the current directory: https://stanfordnlp.github.io/CoreNLP/
+* Follow the instructions at http://polyglot.readthedocs.io/en/latest/Installation.html to install Polyglot
+* In the current directory, run:
+
+cd stanford-corenlp-full-2017-06-09
+wget http://nlp.stanford.edu/software/stanford-english-corenlp-2017-06-09-models.jar
+wget http://downloads.gate.ac.uk/twitie/gate-EN-twitter.model
+cd ..
+polyglot download embeddings2.en ner2.en
+git clone https://github.com/aritter/twitter_nlp.git
+git clone git clone https://github.com/mit-nlp/MITIE.git
+cd MITIE
+make MITIE-models
+cd mitielib
+make
+cd ../..
+git clone https://github.com/napsternxg/TwitterNER.git
+git clone https://github.com/percyliang/brown-cluster.git
+cd brown-cluster
+make
+cd ..
+git clone https://github.com/ninjin/clark_pos_induction.git
+cd clark_pos_induction/src
+make
+cd ../..
+virtualenv venv
+source venv/bin/activate
+pip install -U spacy gensim scikit-learn matplotlib seaborn sklearn-crfsuite jupyter joblib nltk
+python -m nltk.downloader all
+python -m spacy download en
+wget http://nlp.stanford.edu/data/glove.twitter.27B.zip
+unzip glove.twitter.27B.zip
+wget http://www.cs.cmu.edu/~ark/TweetNLP/clusters/50mpaths2
+wget wget http://cs.jhu.edu/~mdredze/datasets/twitter_ner.zip
+unzip twitter_ner.zip
+wget https://bitbucket.org/lowlands/release/raw/fd60e8b4fbb12f0175e0f26153e289bbe2bfd71c/LREC2014/twitter_ner/data/hege.test.tsv
