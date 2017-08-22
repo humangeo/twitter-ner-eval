@@ -87,22 +87,18 @@ FININ_TEST_FILE = "finin.test"
 
 UNDEFINED = "undefined"
 
-TWITTER_NER_MODEL_FILE = "twitter_ner_model.pkl"
-TWITTER_NER_WNUT_TRAINING_DATA_MODEL_FILE = "twitter_ner_wnut_training_data_model.pkl"
-TWITTER_NER_HEGE_TRAINING_DATA_MODEL_FILE = "twitter_ner_hege_training_data_model.pkl"
-TWITTER_NER_FININ_TRAINING_DATA_MODEL_FILE = "twitter_ner_finin_training_data_model.pkl"
-TWITTER_NER_WNUT_AND_HEGE_TRAINING_DATA_MODEL_FILE = "twitter_ner_wnut_and_hege_training_data_model.pkl"
+TWITTER_NER_MODEL_FILE = "twitter_ner%s_model.pkl"
 
 DICTIONARY_DIR = "TwitterNER/data/cleaned/custom_lexicons/"
 WORDVEC_FILE_RAW = "glove.twitter.27B.200d.txt"
 WORDVEC_FILE_PROCESSED = "glove.twitter.27B.200d.txt.processed.txt"
 GIMPLE_TWITTER_BROWN_CLUSTERS_DIR = "50mpaths2"
-TEST_ENRICHED_DATA_BROWN_CLUSTER_DIR = "brown_clusters"
+TEST_ENRICHED_DATA_BROWN_CLUSTER_DIR = "brown_clusters%s"
 BROWN_EXEC_PATH = "brown-cluster/wcluster"
-BROWN_INPUT_DATA_PATH = "all_sequences.brown.txt"
-TEST_ENRICHED_DATA_CLARK_CLUSTER_DIR = "clark_clusters"
+BROWN_INPUT_DATA_PATH = "all_sequences%s.brown.txt"
+TEST_ENRICHED_DATA_CLARK_CLUSTER_DIR = "clark_clusters%s"
 CLARK_EXEC_PATH = "clark_pos_induction/src/bin/cluster_neyessenmorph"
-CLARK_INPUT_DATA_PATH = "all_sequences.clark.txt"
+CLARK_INPUT_DATA_PATH = "all_sequences%s.clark.txt"
 
 def write_scores(row, gold, system):
     intersection_size = len(gold & system)
@@ -486,11 +482,13 @@ def write_sequences(sequences, filename, sep="\t", to_bieou=True, type_map=None)
                 fp.write(sep.join(new_tag) + u"\n")
             fp.write(u"\n")
 
-def get_twitter_ner_entities(original_tweets, model_file_path, train_files):
+def get_twitter_ner_entities(original_tweets, training_data_name, train_files):
     dict_features = DictionaryFeatures(DICTIONARY_DIR)
+
     all_sequences = load_sequences(DEV_FILE)
     for (train_file, encoding, type_map) in train_files:
         all_sequences.extend(load_sequences(train_file, sep="\t", encoding=encoding))
+
     all_tokens = [[t[0] for t in seq] for seq in all_sequences]
     if not os.path.exists(WORDVEC_FILE_PROCESSED):
         process_glovevectors(WORDVEC_FILE_RAW)
@@ -500,14 +498,16 @@ def get_twitter_ner_entities(original_tweets, model_file_path, train_files):
     gimple_brown_cf.set_cluster_file_path(GIMPLE_TWITTER_BROWN_CLUSTERS_DIR)
     gimple_brown_clusters = gimple_brown_cf.read_clusters()
 
-    for directory in (TEST_ENRICHED_DATA_BROWN_CLUSTER_DIR, TEST_ENRICHED_DATA_CLARK_CLUSTER_DIR):
+    test_enriched_data_brown_cluster_dir = TEST_ENRICHED_DATA_BROWN_CLUSTER_DIR % training_data_name
+    test_enriched_data_clark_cluster_dir = TEST_ENRICHED_DATA_CLARK_CLUSTER_DIR % training_data_name
+    for directory in (test_enriched_data_brown_cluster_dir, test_enriched_data_clark_cluster_dir):
         if not os.path.exists(directory):
             os.makedirs(directory)
 
-    test_enriched_data_brown_cf = ClusterFeatures(TEST_ENRICHED_DATA_BROWN_CLUSTER_DIR,
+    test_enriched_data_brown_cf = ClusterFeatures(test_enriched_data_brown_cluster_dir,
                                                   cluster_type="brown", n_clusters=100)
     test_enriched_data_brown_cf.set_cluster_file_path()
-    test_enriched_data_clark_cf = ClusterFeatures(TEST_ENRICHED_DATA_CLARK_CLUSTER_DIR,
+    test_enriched_data_clark_cf = ClusterFeatures(test_enriched_data_clark_cluster_dir,
                                                   cluster_type="clark", n_clusters=32)
     test_enriched_data_clark_cf.set_cluster_file_path()
 
@@ -518,19 +518,21 @@ def get_twitter_ner_entities(original_tweets, model_file_path, train_files):
 
     if not os.path.exists(test_enriched_data_brown_cf.cluster_file_path):
         test_enriched_data_brown_cf.set_exec_path(BROWN_EXEC_PATH)
-        test_enriched_data_brown_cf.gen_training_data(preprocessed_tokens, BROWN_INPUT_DATA_PATH)
-        test_enriched_data_brown_cf.gen_clusters(BROWN_INPUT_DATA_PATH, TEST_ENRICHED_DATA_BROWN_CLUSTER_DIR)
+        brown_input_data_path = BROWN_INPUT_DATA_PATH % training_data_name
+        test_enriched_data_brown_cf.gen_training_data(preprocessed_tokens, brown_input_data_path)
+        test_enriched_data_brown_cf.gen_clusters(brown_input_data_path, TEST_ENRICHED_DATA_BROWN_CLUSTER_DIR % training_data_name)
 
     test_enriched_data_brown_clusters = test_enriched_data_brown_cf.read_clusters()
 
     if not os.path.exists(test_enriched_data_clark_cf.cluster_file_path):
         test_enriched_data_clark_cf.set_exec_path(CLARK_EXEC_PATH)
-        test_enriched_data_clark_cf.gen_training_data(preprocessed_tokens, CLARK_INPUT_DATA_PATH)
-        test_enriched_data_clark_cf.gen_clusters(CLARK_INPUT_DATA_PATH, TEST_ENRICHED_DATA_CLARK_CLUSTER_DIR)
+        clark_input_data_path = CLARK_INPUT_DATA_PATH % training_data_name
+        test_enriched_data_clark_cf.gen_training_data(preprocessed_tokens, clark_input_data_path)
+        test_enriched_data_clark_cf.gen_clusters(clark_input_data_path, TEST_ENRICHED_DATA_CLARK_CLUSTER_DIR % training_data_name)
 
     test_enriched_data_clark_clusters = test_enriched_data_clark_cf.read_clusters()
 
-    model = get_twitter_ner_model(model_file_path, train_files,
+    model = get_twitter_ner_model(TWITTER_NER_MODEL_FILE % training_data_name, train_files,
                                   dict_features, wv_model, gimple_brown_clusters,
                                   test_enriched_data_brown_clusters,
                                   test_enriched_data_clark_clusters)
@@ -622,30 +624,32 @@ if __name__ == "__main__":
             system_entities = get_nltk_entities(original_tweets)
             write_all_scores(csv_writer, no_mentions_csv_writer, "NLTK", gold_entities, system_entities)
 
-            twitter_ner_entities = get_twitter_ner_entities(original_tweets, TWITTER_NER_MODEL_FILE, [(TRAIN_FILE, "utf-8", TYPE_MAP)])
-            write_all_scores(csv_writer, no_mentions_csv_writer, "TwitterNER", gold_entities, twitter_ner_entities)
+            system_entities = get_twitter_ner_entities(original_tweets,
+                                                       "",
+                                                       [(TRAIN_FILE, "utf-8", TYPE_MAP)])
+            write_all_scores(csv_writer, no_mentions_csv_writer, "TwitterNER", gold_entities, system_entities)
 
             system_entities = get_twitter_ner_entities(original_tweets,
-                                                       TWITTER_NER_WNUT_TRAINING_DATA_MODEL_FILE,
+                                                       "_wnut",
                                                        [(TRAIN_FILE, "utf-8", TYPE_MAP),
                                                         (WNUT_TRAIN_FILE, "utf-8", WNUT_TYPE_MAP)])
             write_all_scores(csv_writer, no_mentions_csv_writer, "TwitterNER (with W-NUT 2017 training data)", gold_entities, system_entities)
 
             system_entities = get_twitter_ner_entities(original_tweets,
-                                                       TWITTER_NER_HEGE_TRAINING_DATA_MODEL_FILE,
+                                                       "_hege",
                                                        [(TRAIN_FILE, "utf-8", TYPE_MAP),
                                                         (HEGE_TRAIN_FILE, "utf-8", FININ_TYPE_MAP)])
             write_all_scores(csv_writer, no_mentions_csv_writer, "TwitterNER (with Hege training data)", gold_entities, system_entities)
 
             system_entities = get_twitter_ner_entities(original_tweets,
-                                                       TWITTER_NER_FININ_TRAINING_DATA_MODEL_FILE,
+                                                       "_finin",
                                                        [(TRAIN_FILE, "utf-8", TYPE_MAP),
                                                         (FININ_TRAIN_FILE, "cp1252", FININ_TYPE_MAP),
                                                         (FININ_TEST_FILE, "cp1252", FININ_TYPE_MAP)])
             write_all_scores(csv_writer, no_mentions_csv_writer, "TwitterNER (with Finin training data)", gold_entities, system_entities)
 
             system_entities = get_twitter_ner_entities(original_tweets,
-                                                       TWITTER_NER_WNUT_AND_HEGE_TRAINING_DATA_MODEL_FILE,
+                                                       "_wnut_and_hege",
                                                        [(TRAIN_FILE, "utf-8", TYPE_MAP),
                                                         (WNUT_TRAIN_FILE, "utf-8", WNUT_TYPE_MAP),
                                                         (HEGE_TRAIN_FILE, "utf-8", FININ_TYPE_MAP)])
